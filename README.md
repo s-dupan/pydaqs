@@ -17,7 +17,8 @@ Each device implements a `read()` method which returns a numpy array with shape 
 Note that some DAQs also require proprietary software to be running concurrentely for data acquistion to work.
 
 * Myo armband: Armband manager
-* Blackrock harware (Cerebus, Neuroport): Central Software Suite 
+* Blackrock harware (Cerebus, Neuroport): Central Software Suite
+* Digitimer D360 (sampled with NI-DAQ): D360 control software
 
 # Notes
 * Tested with Python >= 3.6
