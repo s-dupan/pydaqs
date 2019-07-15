@@ -22,4 +22,3 @@ Note that some DAQs also require proprietary software to be running concurrentel
 
 # Notes
 * Tested with Python >= 3.6
-* 
