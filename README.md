@@ -7,7 +7,7 @@ The wrappers follow a simple protocol for data acqusition, which is compatible w
 Each device implements a `read()` method which returns a numpy array with shape (`n_channels`, `samples_per_read`). This method needs to be called in a loop from the main application. The frequency the method is called needs to be at least equal to the rate data are streamed from the DAQ device.
 
 # Requirements
-[Numpy](https://github.com/numpy/numpy)
+[Numpy](https://github.com/numpy/numpy) >= 1.11
 
 # Hardware-specific package requirements
 
@@ -17,9 +17,9 @@ Each device implements a `read()` method which returns a numpy array with shape 
 
 Note that some DAQs also require proprietary software to be running concurrentely for data acquistion to work.
 
-* Myo armband: Armband manager
-* Blackrock harware (Cerebus, Neuroport): Central Software Suite
-* Digitimer D360 (sampled with NI-DAQ): D360 control software
+* Myo armband: [Myo connect](https://support.getmyo.com/hc/en-us/articles/360018409792-Myo-Connect-SDK-and-firmware-downloads)
+* Blackrock harware (Cerebus, Neuroport): [Central Software Suite](https://blackrockmicro.com/technical-support/software-downloads/)
+* Digitimer D360 (sampled with NI-DAQ): [D360 control software](https://digitimer.com/products/human-neurophysiology/isolated-amplifiers-emg-eeg/d360-8-channel-patient-amplifier/#Downloads)
 
 # Notes
 * Tested with Python >= 3.6
