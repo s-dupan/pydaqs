@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 
-
 class _BaseDAQ(ABC):
     """
     Base class for DAQ stream reading devices.
@@ -20,3 +19,9 @@ class _BaseDAQ(ABC):
     @abstractmethod
     def stop(self):
         pass
+
+    def __del__(self):
+        try:
+            self.stop()
+        except BaseException:
+            pass
