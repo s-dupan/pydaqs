@@ -49,14 +49,9 @@ class Blackrock(_BaseDAQ):
             'double': True,
             'continuous_length': self.samples_per_read
         }
-        range_parameter = {
-            'begin_channel': self.channels[0],
-            'end_channel': self.channels[-1]
-        }
         result, _ = cbpy.trial_config(
             reset=True,
-            buffer_parameter=buffer_parameter,
-            range_parameter=range_parameter)
+            buffer_parameter=buffer_parameter)
         err_msg = "Trial configuration was not set successfully."
         self._check_result(result, RuntimeError, err_msg)
 
