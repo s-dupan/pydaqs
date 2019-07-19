@@ -29,6 +29,8 @@ class Nidaq(_BaseDAQ):
         self.samples_per_read = samples_per_read
         self.dev = dev
 
+        self._initialize()
+
     def _initialize(self):
         self._task = Task()
 
@@ -38,7 +40,7 @@ class Nidaq(_BaseDAQ):
 
         self._task.timing.cfg_samp_clk_timing(
             rate=self.rate,
-            sample_mode=AcquisitionType.CONTINUOUS)
+            sample_mode=AcquisitionType.FINITE)
 
     def start(self):
         """Tell the device to begin streaming data. Does not do anything."""
