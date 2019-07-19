@@ -25,9 +25,10 @@ class Blackrock(_BaseDAQ):
             Connection parameters.
     """
 
-    def __init__(self, channels, samples_per_read):
+    def __init__(self, channels, samples_per_read, units='raw'):
         self.channels = channels
         self.samples_per_read = samples_per_read
+        self.units = units
 
         self._initialize()
 
@@ -47,11 +48,13 @@ class Blackrock(_BaseDAQ):
         """
         buffer_parameter = {
             'double': True,
-            'continuous_length': self.samples_per_read
+            'continuous_length': 1
         }
         result, _ = cbpy.trial_config(
             reset=True,
-            buffer_parameter=buffer_parameter)
+            buffer_parameter=buffer_parameter,
+            noevent=1,
+            nocomment=1)
         err_msg = "Trial configuration was not set successfully."
         self._check_result(result, RuntimeError, err_msg)
 
@@ -68,11 +71,21 @@ class Blackrock(_BaseDAQ):
             Data read from the device. Each channel is a row and each column
             is a point in time.
         """
+        err_msg = "Read operation was not successful."
         data = np.zeros((len(self.channels), self.samples_per_read))
-        result, trial = cbpy.trial_continuous(reset=True)
-        trial.sort(key=lambda x: x[0])  # Sort by increasing channel number
-        for i, channel_list in enumerate(trial):
-            data[i, :] = channel_list[1]
+        n_read = 0
+        while n_read < self.samples_per_read:
+            result, trial = cbpy.trial_continuous(reset=True)
+            # self._check_result(result, RuntimeError, err_msg)
+            if result == 0:
+                # Filter channels and sort them by increasing order
+                trial_channels = [x for x in trial if (x[0] in self.channels)]
+                trial.sort(key=lambda x: x[0])
+                n_pooled = trial_channels[0][1].size
+                for i, channel_list in enumerate(trial):
+                    data[i, n_read:n_read + n_pooled] = channel_list[1]
+
+                n_read += n_pooled
 
         return data
 
