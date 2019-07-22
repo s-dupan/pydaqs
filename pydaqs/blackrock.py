@@ -1,3 +1,6 @@
+from queue import Queue
+from threading import Thread
+
 import numpy as np
 from cerebus import cbpy
 
@@ -41,7 +44,7 @@ class Blackrock(_BaseDAQ):
         self.connection_params = return_dict
 
         # Buffer
-        self.queue_ = [Queue() for _ in range(self.n_channels)]
+        self.queue_ = [Queue() for _ in range(len(self.channels))]
         self.running_ = False
 
     def start(self):
@@ -85,30 +88,10 @@ class Blackrock(_BaseDAQ):
             Data read from the device. Each channel is a row and each column
             is a point in time.
         """
-        err_msg = "Read operation was not successful."
         data = np.zeros((len(self.channels), self.samples_per_read))
-<<<<<<< Updated upstream
-        n_read = 0
-        while n_read < self.samples_per_read:
-            result, trial = cbpy.trial_continuous(reset=True)
-            # self._check_result(result, RuntimeError, err_msg)
-            if result == 0 and bool(trial):
-                # Filter channels and sort them by increasing order
-                trial_channels = [x for x in trial if (x[0] in self.channels)]
-                trial.sort(key=lambda x: x[0])
-                n_pooled = trial_channels[0][1].size
-                for i, channel_list in enumerate(trial):
-                    try:
-                        data[i, n_read:n_read + n_pooled] = channel_list[1]
-                    except ValueError:
-                        data[i, n_read:] = channel_list[1][:self.samples_per_read-n_read]
-
-                n_read += n_pooled
-=======
         for sample in range(self.samples_per_read):
-            for channel in range(self.n_channels):
+            for channel in range(len(self.channels)):
                 data[channel, sample] = self.queue_[channel].get()
->>>>>>> Stashed changes
 
         return data
 
