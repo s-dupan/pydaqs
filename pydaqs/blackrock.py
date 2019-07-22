@@ -40,6 +40,10 @@ class Blackrock(_BaseDAQ):
         self._check_result(result, ConnectionError, err_msg)
         self.connection_params = return_dict
 
+        # Buffer
+        self.queue_ = [Queue() for _ in range(self.n_channels)]
+        self.running_ = False
+
     def start(self):
         """
         Tell the device to begin streaming data.
@@ -54,6 +58,19 @@ class Blackrock(_BaseDAQ):
             buffer_parameter=buffer_parameter)
         err_msg = "Trial configuration was not set successfully."
         self._check_result(result, RuntimeError, err_msg)
+
+        self.running_ = True
+        self.thread_ = Thread(target=self.fetch, daemon=True)
+        self.thread_.start()
+
+    def fetch(self):
+        while self.running_:
+            result, trial = cbpy.trial_continuous(reset=True)
+            trial.sort(key=lambda x: x[0])  # Sort by increasing channel number
+            for i, channel_list in enumerate(trial):
+                channel_data = channel_list[1]
+                for sample in channel_data:
+                    self.queue_[i].put(sample)
 
     def read(self):
         """
@@ -70,6 +87,7 @@ class Blackrock(_BaseDAQ):
         """
         err_msg = "Read operation was not successful."
         data = np.zeros((len(self.channels), self.samples_per_read))
+<<<<<<< Updated upstream
         n_read = 0
         while n_read < self.samples_per_read:
             result, trial = cbpy.trial_continuous(reset=True)
@@ -86,11 +104,17 @@ class Blackrock(_BaseDAQ):
                         data[i, n_read:] = channel_list[1][:self.samples_per_read-n_read]
 
                 n_read += n_pooled
+=======
+        for sample in range(self.samples_per_read):
+            for channel in range(self.n_channels):
+                data[channel, sample] = self.queue_[channel].get()
+>>>>>>> Stashed changes
 
         return data
 
     def stop(self):
         """Tell the device to stop streaming data."""
+        self.running_ = False
         result = cbpy.close()
         err_msg = "Connection to NSP/Central not closed successfully."
         self._check_result(result, ConnectionError, err_msg)
