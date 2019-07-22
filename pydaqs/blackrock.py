@@ -47,14 +47,11 @@ class Blackrock(_BaseDAQ):
         You should call ``read()`` soon after this.
         """
         buffer_parameter = {
-            'double': True,
-            'continuous_length': 1
+            'double': True
         }
         result, _ = cbpy.trial_config(
             reset=True,
-            buffer_parameter=buffer_parameter,
-            noevent=1,
-            nocomment=1)
+            buffer_parameter=buffer_parameter)
         err_msg = "Trial configuration was not set successfully."
         self._check_result(result, RuntimeError, err_msg)
 
@@ -77,13 +74,16 @@ class Blackrock(_BaseDAQ):
         while n_read < self.samples_per_read:
             result, trial = cbpy.trial_continuous(reset=True)
             # self._check_result(result, RuntimeError, err_msg)
-            if result == 0:
+            if result == 0 and bool(trial):
                 # Filter channels and sort them by increasing order
                 trial_channels = [x for x in trial if (x[0] in self.channels)]
                 trial.sort(key=lambda x: x[0])
                 n_pooled = trial_channels[0][1].size
                 for i, channel_list in enumerate(trial):
-                    data[i, n_read:n_read + n_pooled] = channel_list[1]
+                    try:
+                        data[i, n_read:n_read + n_pooled] = channel_list[1]
+                    except ValueError:
+                        data[i, n_read:] = channel_list[1][:self.samples_per_read-n_read]
 
                 n_read += n_pooled
 
