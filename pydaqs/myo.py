@@ -74,10 +74,10 @@ class MyoEMG(_Myo):
         self.samples_per_read = samples_per_read
         self.zero_based = zero_based
 
-        self._compute_channel_indices()
+        self._make_indices()
 
-    def _compute_channel_indices(self):
-        """Sets _channels attribute depending on selected indexing. """
+    def _make_indices(self):
+        """Sets _channel_indices attribute depending on selected indexing. """
         if self.zero_based:
             self._channel_indices = self.channels
         else:
