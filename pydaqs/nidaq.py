@@ -21,13 +21,18 @@ class Nidaq(_BaseDAQ):
         Number of samples per channel to read in each read operation.
     dev : str, optional
         Device name. By default, 1 is used.
+    zero_based : bool, optional
+        If ``True``, 0-based indexing is used for channel numbering. Default is
+        ``True``.
     """
 
-    def __init__(self, channels, rate, samples_per_read, dev='1'):
+    def __init__(self, channels, rate, samples_per_read, dev='1',
+                 zero_based=True):
         self.channels = channels
         self.rate = rate
         self.samples_per_read = samples_per_read
         self.dev = dev
+        self.zero_based = zero_based
 
         self._initialize()
 
@@ -35,7 +40,11 @@ class Nidaq(_BaseDAQ):
         self._task = Task()
 
         for channel in self.channels:
-            chan_name = 'Dev' + self.dev + '/ai' + str(channel)
+            if self.zero_based:
+                channel_no = channel
+            else:
+                channel_no = channel + 1
+            chan_name = 'Dev' + self.dev + '/ai' + str(channel_no)
             self._task.ai_channels.add_ai_voltage_chan(chan_name)
 
         self._task.timing.cfg_samp_clk_timing(

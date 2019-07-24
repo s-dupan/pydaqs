@@ -58,6 +58,9 @@ class MyoEMG(_Myo):
         channel.
     samples_per_read : int
         Number of samples per channel to read in each read operation.
+    zero_based : bool, optional
+        If ``True``, 0-based indexing is used for channel numbering. Default is
+        ``False``.
 
     Attributes
     ----------
@@ -65,10 +68,20 @@ class MyoEMG(_Myo):
         Fifo Queue to store incoming data.
     """
 
-    def __init__(self, channels, samples_per_read):
+    def __init__(self, channels, samples_per_read, zero_based=False):
         super(MyoEMG, self).__init__()
         self.channels = channels
         self.samples_per_read = samples_per_read
+        self.zero_based = zero_based
+
+        self._compute_channel_indices()
+
+    def _compute_channel_indices(self):
+        """Sets _channels attribute depending on selected indexing. """
+        if self.zero_based:
+            self._channel_indices = self.channels
+        else:
+            self._channel_indices = [channel - 1 for channel in self.channels]
 
     def on_connected(self, event):
         """Enables EMG streaming."""
@@ -100,7 +113,7 @@ class MyoEMG(_Myo):
                 pass
 
         data = np.atleast_2d(np.asarray(data)).T
-        return data[self.channels, :]
+        return data[self._channel_indices, :]
 
 
 class MyoIMU(_Myo):

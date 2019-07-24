@@ -18,6 +18,9 @@ class Blackrock(_BaseDAQ):
         Channels to use.
     samples_per_read : int
         Number of samples per channel to read in each read operation.
+    zero_based : bool, optional
+        If ``True``, 0-based indexing is used for channel numbering. Default is
+        ``False``.
 
     Attributes
     ----------
@@ -25,9 +28,10 @@ class Blackrock(_BaseDAQ):
             Connection parameters.
     """
 
-    def __init__(self, channels, samples_per_read):
+    def __init__(self, channels, samples_per_read, zero_based=False):
         self.channels = channels
         self.samples_per_read = samples_per_read
+        self.zero_based = zero_based
 
         self._initialize()
 
