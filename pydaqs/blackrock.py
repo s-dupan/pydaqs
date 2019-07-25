@@ -1,3 +1,6 @@
+from queue import Queue
+from threading import Thread
+
 import numpy as np
 from cerebus import cbpy
 
@@ -28,10 +31,13 @@ class Blackrock(_BaseDAQ):
             Connection parameters.
     """
 
-    def __init__(self, channels, samples_per_read, zero_based=False):
+    def __init__(self, channels, samples_per_read, zero_based=False,
+                 units='raw'):
         self.channels = channels
         self.samples_per_read = samples_per_read
         self.zero_based = zero_based
+        self.units = units
+
 
         self._initialize()
 
@@ -43,6 +49,10 @@ class Blackrock(_BaseDAQ):
         self._check_result(result, ConnectionError, err_msg)
         self.connection_params = return_dict
 
+        # Buffer
+        self.queue_ = [Queue() for _ in range(len(self.channels))]
+        self.running_ = False
+
     def start(self):
         """
         Tell the device to begin streaming data.
@@ -50,14 +60,26 @@ class Blackrock(_BaseDAQ):
         You should call ``read()`` soon after this.
         """
         buffer_parameter = {
-            'double': True,
-            'continuous_length': self.samples_per_read
+            'double': True
         }
         result, _ = cbpy.trial_config(
             reset=True,
             buffer_parameter=buffer_parameter)
         err_msg = "Trial configuration was not set successfully."
         self._check_result(result, RuntimeError, err_msg)
+
+        self.running_ = True
+        self.thread_ = Thread(target=self.fetch, daemon=True)
+        self.thread_.start()
+
+    def fetch(self):
+        while self.running_:
+            result, trial = cbpy.trial_continuous(reset=True)
+            trial.sort(key=lambda x: x[0])  # Sort by increasing channel number
+            for i, channel_list in enumerate(trial):
+                channel_data = channel_list[1]
+                for sample in channel_data:
+                    self.queue_[i].put(sample)
 
     def read(self):
         """
@@ -73,15 +95,15 @@ class Blackrock(_BaseDAQ):
             is a point in time.
         """
         data = np.zeros((len(self.channels), self.samples_per_read))
-        result, trial = cbpy.trial_continuous(reset=True)
-        trial.sort(key=lambda x: x[0])  # Sort by increasing channel number
-        for i, channel_list in enumerate(trial):
-            data[i, :] = channel_list[1]
+        for sample in range(self.samples_per_read):
+            for channel in range(len(self.channels)):
+                data[channel, sample] = self.queue_[channel].get()
 
         return data
 
     def stop(self):
         """Tell the device to stop streaming data."""
+        self.running_ = False
         result = cbpy.close()
         err_msg = "Connection to NSP/Central not closed successfully."
         self._check_result(result, ConnectionError, err_msg)
