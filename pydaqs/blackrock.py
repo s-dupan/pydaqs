@@ -75,11 +75,13 @@ class Blackrock(_BaseDAQ):
     def fetch(self):
         while self.running_:
             result, trial = cbpy.trial_continuous(reset=True)
-            trial.sort(key=lambda x: x[0])  # Sort by increasing channel number
-            for i, channel_list in enumerate(trial):
-                channel_data = channel_list[1]
-                for sample in channel_data:
-                    self.queue_[i].put(sample)
+            for channel_list in trial:
+                channel_number = channel_list[0]
+                if channel_number in self.channels:
+                    ind = self.channels.index(channel_number)
+                    channel_data = channel_list[1]
+                    for sample in channel_data:
+                        self.queue_[ind].put(sample)
 
     def read(self):
         """
