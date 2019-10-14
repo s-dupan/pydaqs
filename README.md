@@ -17,7 +17,7 @@ Tested versions in brackets.
 
 Note that some DAQs also require proprietary software to be running concurrentely for data acquistion to work.
 
-* Myo armband: [Myo connect](https://support.getmyo.com/hc/en-us/articles/360018409792-Myo-Connect-SDK-and-firmware-downloads) (v.1.0.1)
+* Myo armband: [Myo connect](https://support.getmyo.com/hc/en-us/articles/360018409792-Myo-Connect-SDK-and-firmware-downloads) (v.1.0.1) and [Myo SDK](https://support.getmyo.com/hc/en-us/articles/360018409792-Myo-Connect-SDK-and-firmware-downloads) (v.0.9.0)
 * Blackrock hardware (Cerebus, Neuroport): [Central Software Suite](https://blackrockmicro.com/technical-support/software-downloads/) (v. 7.0.4)
 * Digitimer D360 (sampled with NI-DAQ): [D360 control software](https://digitimer.com/products/human-neurophysiology/isolated-amplifiers-emg-eeg/d360-8-channel-patient-amplifier/#Downloads) (v. 4.7.3.0)
 
