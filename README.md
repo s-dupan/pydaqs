@@ -6,6 +6,16 @@ Mainly intended for internal use within [IntellSensing Lab](http://www.intellsen
 The wrappers follow a simple protocol for data acqusition, which is compatible with [axopy](https://github.com/axopy/axopy). 
 Each device implements a `read()` method which returns a numpy array with shape (`n_channels`, `samples_per_read`). This method needs to be called in a loop from the main application. The frequency the method is called needs to be at least equal to the rate data are streamed from the DAQ device.
 
+Here is a minimal working example:
+
+```python
+from pydaqs.nidaq import Nidaq
+dev = nidaq(channels=[0,1], rate=1000, samples_per_read=100)
+dev.read()
+dev.stop()
+```
+
+
 ## Requirements
 [Numpy](https://github.com/numpy/numpy) >= 1.11
 
