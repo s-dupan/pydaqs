@@ -1,5 +1,4 @@
-from queue import Queue
-from threading import Thread
+import time
 
 import numpy as np
 from cerebus import cbpy
@@ -38,7 +37,6 @@ class Blackrock(_BaseDAQ):
         self.zero_based = zero_based
         self.units = units
 
-
         self._initialize()
 
     def _initialize(self):
@@ -48,10 +46,6 @@ class Blackrock(_BaseDAQ):
         err_msg = "Connection to NSP/Central not established successfully."
         self._check_result(result, ConnectionError, err_msg)
         self.connection_params = return_dict
-
-        # Buffer
-        self.queue_ = [Queue() for _ in range(len(self.channels))]
-        self.running_ = False
 
     def start(self):
         """
@@ -67,21 +61,18 @@ class Blackrock(_BaseDAQ):
             buffer_parameter=buffer_parameter)
         err_msg = "Trial configuration was not set successfully."
         self._check_result(result, RuntimeError, err_msg)
+        self.cache_ = np.zeros((len(self.channels), 0))
 
-        self.running_ = True
-        self.thread_ = Thread(target=self.fetch, daemon=True)
-        self.thread_.start()
+    def _read_nsp(self):
+        # Not sure why but this is needed
+        time.sleep(1e-9)
+        result, trial = cbpy.trial_continuous(reset=True)
+        data = []
+        for channel_number, channel_data in trial:
+            if channel_number in self.channels:
+                data.append(channel_data)
 
-    def fetch(self):
-        while self.running_:
-            result, trial = cbpy.trial_continuous(reset=True)
-            for channel_list in trial:
-                channel_number = channel_list[0]
-                if channel_number in self.channels:
-                    ind = self.channels.index(channel_number)
-                    channel_data = channel_list[1]
-                    for sample in channel_data:
-                        self.queue_[ind].put(sample)
+        return np.array(data)
 
     def read(self):
         """
@@ -96,10 +87,18 @@ class Blackrock(_BaseDAQ):
             Data read from the device. Each channel is a row and each column
             is a point in time.
         """
-        data = np.zeros((len(self.channels), self.samples_per_read))
-        for sample in range(self.samples_per_read):
-            for channel in range(len(self.channels)):
-                data[channel, sample] = self.queue_[channel].get()
+        cur_data = np.copy(self.cache_)
+        while cur_data.shape[1] < self.samples_per_read:
+            new_data = self._read_nsp()
+            if len(new_data) > 0:
+                cur_data = np.append(cur_data, new_data, axis=1)
+
+        if cur_data.shape[1] > self.samples_per_read:
+            data = cur_data[:, :self.samples_per_read]
+            self.cache_ = cur_data[:, self.samples_per_read:]
+        else:
+            data = cur_data
+            self.cache_ = np.zeros((len(self.channels), 0))
 
         return data
 
