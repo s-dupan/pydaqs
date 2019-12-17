@@ -64,8 +64,6 @@ class Blackrock(_BaseDAQ):
         self.cache_ = np.zeros((len(self.channels), 0))
 
     def _read_nsp(self):
-        # Not sure why but this is needed
-        time.sleep(1e-9)
         result, trial = cbpy.trial_continuous(reset=True)
         data = []
         for channel_number, channel_data in trial:
@@ -92,6 +90,11 @@ class Blackrock(_BaseDAQ):
             new_data = self._read_nsp()
             if len(new_data) > 0:
                 cur_data = np.append(cur_data, new_data, axis=1)
+
+            # It seems that NSP/Central can not handle continuous polling
+            # therefore a tiny sleep is required between two consecutive
+            # polling operations to ensure that data acquisition is not hanged.
+            time.sleep(1e-9)
 
         if cur_data.shape[1] > self.samples_per_read:
             data = cur_data[:, :self.samples_per_read]
