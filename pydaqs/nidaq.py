@@ -43,7 +43,7 @@ class Nidaq(_BaseDAQ):
             if self.zero_based:
                 channel_no = channel
             else:
-                channel_no = channel + 1
+                channel_no = channel - 1
             chan_name = 'Dev' + self.dev + '/ai' + str(channel_no)
             self._task.ai_channels.add_ai_voltage_chan(chan_name)
 
