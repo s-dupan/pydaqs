@@ -10,7 +10,7 @@ Here is a minimal working example:
 
 ```python
 from pydaqs.nidaq import Nidaq
-dev = nidaq(channels=[0,1], rate=1000, samples_per_read=100)
+dev = Nidaq(channels=[0,1], rate=1000, samples_per_read=100)
 dev.read()
 dev.stop()
 ```
