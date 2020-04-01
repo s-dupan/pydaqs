@@ -1,8 +1,10 @@
+from threading import Thread
+import time
+
 import numpy as np
+from serial import SerialException
 from serial.tools import list_ports
 from pyfirmata import Arduino
-from pyfirmata import util
-
 from axopy.daq import _Sleeper
 
 from .base import _BaseDAQ
@@ -40,9 +42,6 @@ class ArduinoDAQ(_BaseDAQ):
     ----------
     board : arduino
         Arduino instance.
-    iterator : iterator
-        Arduino iterator that constantly pulls data from serial port
-        on a different thread (i.e., asynchronously).
     sleeper : sleeper
         Sleeper instance required to implement the desired sampling rate.
     """
@@ -72,8 +71,6 @@ class ArduinoDAQ(_BaseDAQ):
         self.pins_ = self.pins if self.zero_based else \
             list(map(lambda x: x-1, self.pins))
         self.board = Arduino(self.port, baudrate=self.baudrate)
-        self.iterator = util.Iterator(self.board)
-        self.iterator.start()
         for pin in self.pins_:
             self.board.analog[pin].enable_reporting()
 
@@ -96,10 +93,40 @@ class ArduinoDAQ(_BaseDAQ):
             return device
 
     def start(self):
-        pass
+        if not self.board.sp.is_open:
+            self.board.sp.open()
+
+        self._flag = True
+        self._thread = Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def _run(self):
+        while self._flag:
+            try:
+                while self.board.bytes_available():
+                    self.board.iterate()
+                # 6 analog inputs X 10 bits/input
+                time.sleep(1/(self.baudrate/60))
+            except (AttributeError, TypeError, SerialException, OSError):
+                # this way we can kill the thread by setting the board object
+                # to None, or when the serial port is closed by board.exit()
+                break
+            except Exception as e:
+                # catch 'error: Bad file descriptor'
+                # iterate may be called while the serial port is being closed,
+                # causing an "error: (9, 'Bad file descriptor')"
+                if getattr(e, "errno", None) == 9:
+                    break
+                try:
+                    if e[0] == 9:
+                        break
+                except (IndexError):
+                    pass
+                raise
 
     def stop(self):
-        pass
+        self._flag = False
+        self.board.exit()
 
     def read(self):
         """
@@ -117,10 +144,13 @@ class ArduinoDAQ(_BaseDAQ):
             Data read from the device. Each pin is a row and each column
             is a point in time.
         """
-        self.sleeper.sleep()
-        data = np.zeros((len(self.pins_), self.samples_per_read))
-        for i in range(self.samples_per_read):
-            for j, pin in enumerate(self.pins_):
-                data[j, i] = self.board.analog[pin].read()
+        if self._flag:
+            self.sleeper.sleep()
+            data = np.zeros((len(self.pins_), self.samples_per_read))
+            for i in range(self.samples_per_read):
+                for j, pin in enumerate(self.pins_):
+                    data[j, i] = self.board.analog[pin].read()
 
-        return data
+            return data
+        else:
+            raise SerialException("Serial port is closed.")
