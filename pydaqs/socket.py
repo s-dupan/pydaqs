@@ -57,12 +57,10 @@ class TCPSocketReader(_SocketReader):
     """
     TCP socket reader.
 
-    Requires the MyoConnect application to be running.
-
     Parameters
     ----------
     ip : str
-        Socket IP address.
+        IP address.
     port : int
         Port number.
     array_len : int
@@ -70,7 +68,7 @@ class TCPSocketReader(_SocketReader):
     samples_per_read : int
         Number of samples per channel to read in each read operation.
     precision : str {'single', 'double'}
-        Floating point precision.
+        Floating point precision. Default is 'single'.
     timeout : float, optional
         Socket timeout time. Default is None.
     """
@@ -129,12 +127,10 @@ class UDPSocketReader(_SocketReader):
     """
     UDP socket reader.
 
-    Requires the MyoConnect application to be running.
-
     Parameters
     ----------
     ip : str
-        Socket IP address.
+        IP address.
     port : int
         Port number.
     array_len : int
@@ -142,7 +138,7 @@ class UDPSocketReader(_SocketReader):
     samples_per_read : int
         Number of samples per channel to read in each read operation.
     precision : str {'single', 'double'}
-        Floating point precision.
+        Floating point precision. Default if 'single'.
     timeout : float, optional
         Socket timeout time. Default is None.
     """
