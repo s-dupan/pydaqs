@@ -4,7 +4,7 @@ import time
 import numpy as np
 from serial import SerialException
 from serial.tools import list_ports
-from pyfirmata import Arduino
+from pyfirmata import Arduino, ArduinoMega, ArduinoDue, ArduinoNano
 from axopy.daq import _Sleeper
 
 from .base import _BaseDAQ
@@ -37,6 +37,13 @@ class ArduinoDAQ(_BaseDAQ):
     zero_based : bool, optional
         If ``True``, 0-based indexing is used for pin numbering. Default is
         ``True``.
+    arduino : string, optional (default: ``Arduino``)
+        Select between Arduino boards supported by pyfirmata. Options are
+        ``Arduino``, ``ArduinoMega``, ``ArduinoDue`` and ``ArduinoNano``.
+    name : string, optional (default: ``Arduino``)
+        String which will be searched for when looking for device name on
+        as a COM port.
+
 
     Attributes
     ----------
@@ -52,11 +59,9 @@ class ArduinoDAQ(_BaseDAQ):
                  samples_per_read,
                  port=None,
                  baudrate=57600,
-                 zero_based=True):
-
-        # If port is not given find the Arduino one
-        if port is None:
-            port = self.get_arduino_port()
+                 zero_based=True,
+                 arduino='Arduino',
+                 name='Arduino'):
 
         self.rate = rate
         self.pins = pins
@@ -64,16 +69,30 @@ class ArduinoDAQ(_BaseDAQ):
         self.port = port
         self.baudrate = baudrate
         self.zero_based = zero_based
+        self.arduino = arduino
+        self.name = name
+
+        # If port is not given find the Arduino one
+        if self.port is None:
+            self.port = self.get_arduino_port()
 
         self._init()
 
     def _init(self):
         self.pins_ = self.pins if self.zero_based else \
             list(map(lambda x: x-1, self.pins))
-        self.board = Arduino(self.port, baudrate=self.baudrate)
+
+        if self.arduino == 'Arduino':
+            self.board = Arduino(self.port, baudrate=self.baudrate)
+        elif self.arduino == 'ArduinoMega':
+            self.board = ArduinoMega(self.port, baudrate=self.baudrate)
+        elif self.arduino == 'ArduinoDue':
+            self.board = ArduinoDue(self.port, baudrate=self.baudrate)
+        elif self.arduino == 'ArduinoNano':
+            self.board = ArduinoNano(self.port, baudrate=self.baudrate)
+
         for pin in self.pins_:
             self.board.analog[pin].enable_reporting()
-
         self.sleeper = _Sleeper(self.samples_per_read/self.rate)
 
     def __del__(self):
@@ -84,9 +103,8 @@ class ArduinoDAQ(_BaseDAQ):
         device = None
         comports = list_ports.comports()
         for port in comports:
-            if port.description.startswith('Arduino'):
+            if port.description.startswith(self.name):
                 device = port.device
-
         if device is None:
             raise Exception("Arduino COM port not found.")
         else:
