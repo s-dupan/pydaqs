@@ -199,6 +199,7 @@ class ArduinoDAQ(_BaseDAQ):
             #     s = self._sample
             # self._debug_print.print(s)
             return data
+
         else:
             raise SerialException("Serial port is closed.")
 
