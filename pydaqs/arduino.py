@@ -1,13 +1,29 @@
-from threading import Thread
+from threading import Thread, Lock
 import time
 
 import numpy as np
 from serial import SerialException
 from serial.tools import list_ports
-from pyfirmata import Arduino, ArduinoMega, ArduinoDue, ArduinoNano
-from axopy.daq import _Sleeper
-
+from pyfirmata2 import Arduino, ArduinoMega, ArduinoDue, ArduinoNano
 from .base import _BaseDAQ
+
+
+class DebugPrinter(object):
+    def __init__(self):
+        self.last_read_time = None
+
+    def print(self, sample):
+        t = time.time()
+        if self.last_read_time is None:
+            pass
+        else:
+            ms = (t - self.last_read_time)
+            debug_string = 'ms: {:.4f} sample: {}'.format(ms, sample)
+            print(debug_string)
+        self.last_read_time = t
+
+    def reset(self):
+        self.last_read_time = None
 
 
 class ArduinoDAQ(_BaseDAQ):
@@ -39,7 +55,7 @@ class ArduinoDAQ(_BaseDAQ):
         ``True``.
     arduino : string, optional (default: ``Arduino``)
         Select between Arduino boards supported by pyfirmata. Options are
-        ``Arduino``, ``ArduinoMega``, ``ArduinoDue`` and ``ArduinoNano``.
+        ``Arduino``, ``ArduinoMega``, ``port='COM5',`` and ``ArduinoNano``.
     name : string, optional (default: ``Arduino``)
         String which will be searched for when looking for device name on
         as a COM port.
@@ -49,8 +65,6 @@ class ArduinoDAQ(_BaseDAQ):
     ----------
     board : arduino
         Arduino instance.
-    sleeper : sleeper
-        Sleeper instance required to implement the desired sampling rate.
     """
 
     def __init__(self,
@@ -75,7 +89,6 @@ class ArduinoDAQ(_BaseDAQ):
         # If port is not given find the Arduino one
         if self.port is None:
             self.port = self.get_arduino_port()
-
         self._init()
 
     def _init(self):
@@ -83,17 +96,28 @@ class ArduinoDAQ(_BaseDAQ):
             list(map(lambda x: x-1, self.pins))
 
         if self.arduino == 'Arduino':
-            self.board = Arduino(self.port, baudrate=self.baudrate)
+            _board = Arduino
         elif self.arduino == 'ArduinoMega':
-            self.board = ArduinoMega(self.port, baudrate=self.baudrate)
+            _board = ArduinoMega
         elif self.arduino == 'ArduinoDue':
-            self.board = ArduinoDue(self.port, baudrate=self.baudrate)
+            _board = ArduinoDue
         elif self.arduino == 'ArduinoNano':
-            self.board = ArduinoNano(self.port, baudrate=self.baudrate)
+            _board = ArduinoNano
+
+        self.board = _board(self.port, baudrate=self.baudrate)
+        self.board.samplingOn(1000 / self.rate)
+        self.board.analog[0].register_callback(self._callback)
 
         for pin in self.pins_:
             self.board.analog[pin].enable_reporting()
-        self.sleeper = _Sleeper(self.samples_per_read/self.rate)
+
+        self._lock = Lock()
+        self._sample = 0
+        self._buffer = np.zeros((len(self.pins_), self.samples_per_read))
+        self._data = np.zeros((len(self.pins_), self.samples_per_read))
+        self._data_ready = False
+
+        self._debug_print = DebugPrinter()
 
     def __del__(self):
         """Call stop() on destruct."""
@@ -121,8 +145,10 @@ class ArduinoDAQ(_BaseDAQ):
     def _run(self):
         while self._flag:
             try:
-                while self.board.bytes_available():
-                    self.board.iterate()
+                # Introduces bug when using pyfirmata2 callback method
+                # while self.board.bytes_available():
+                #    self.board.iterate()
+
                 # 6 analog inputs X 10 bits/input
                 time.sleep(1/(self.baudrate/60))
             except (AttributeError, TypeError, SerialException, OSError):
@@ -152,9 +178,9 @@ class ArduinoDAQ(_BaseDAQ):
 
         This method blocks (calls ``time.sleep()``) to emulate other data
         acquisition units which wait for the requested number of samples to be
-        read. The amount of time to block is calculated such that consecutive
-        calls will always return with constant frequency, assuming the calls
-        occur faster than required (i.e. processing doesn't fall behind).
+        read. The amount of time to block is dependent on rate and on the
+        samples_per_read. Calls will return with relatively constant frequency,
+        assuming calls occur faster than required (i.e. processing doesn't fall behind).
 
         Returns
         -------
@@ -163,12 +189,35 @@ class ArduinoDAQ(_BaseDAQ):
             is a point in time.
         """
         if self._flag:
-            self.sleeper.sleep()
-            data = np.zeros((len(self.pins_), self.samples_per_read))
-            for i in range(self.samples_per_read):
-                for j, pin in enumerate(self.pins_):
-                    data[j, i] = self.board.analog[pin].read()
-
+            while (not self._data_ready):
+                # cannot time smaller than 10 - 15 ms in Windows
+                # this delays copying a chunk, not reading samples
+                time.sleep(0.01)
+            with self._lock:
+                data = self._data
+                self._data_ready = False
+            #     s = self._sample
+            # self._debug_print.print(s)
             return data
         else:
             raise SerialException("Serial port is closed.")
+
+    def _callback(self, data):
+        """
+        Pyfirmata2 triggered callback.
+
+        This callback is triggered by the Arduino. Data is read from the pins
+        and copied to a buffer. Once the buffer is full is is copied to a read
+        buffer. The samples_per_read relative to rate must allow sufficient
+        time for the read buffer self._data to be output by the read() function.
+        """
+        with self._lock:
+            for j, pin in enumerate(self.pins_):
+                _s = self.board.analog[pin].read()
+                if _s:
+                    self._buffer[j, self._sample] = _s
+            self._sample += 1
+            if (self._sample >= self.samples_per_read):
+                self._data = self._buffer
+                self._data_ready = True
+                self._sample = 0
