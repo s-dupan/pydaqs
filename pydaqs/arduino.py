@@ -188,8 +188,11 @@ class ArduinoDAQ(_BaseDAQ):
         self.board.analog[0].unregiser_callback()
         self.board.samplingOff()
         # Flush remaining data
-        while self.board.bytes_available():
-            self.board.iterate()
+        try:
+            while self.board.bytes_available():
+                self.board.iterate()
+        except (SerialException):
+            pass
 
     def stop(self):
         self._resetboard()
