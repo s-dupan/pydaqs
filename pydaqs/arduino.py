@@ -89,6 +89,7 @@ class ArduinoDAQ(_BaseDAQ):
         # If port is not given find the Arduino one
         if self.port is None:
             self.port = self.get_arduino_port()
+
         self._init()
 
     def _init(self):
@@ -105,12 +106,13 @@ class ArduinoDAQ(_BaseDAQ):
             _board = ArduinoNano
 
         self.board = _board(self.port, baudrate=self.baudrate)
+
+        self._resetboard()
+
         self.board.samplingOn(1000 / self.rate)
         self.board.analog[0].register_callback(self._callback)
-
         for pin in self.pins_:
             self.board.analog[pin].enable_reporting()
-
         self._lock = Lock()
         self._sample = 0
         self._buffer = np.zeros((len(self.pins_), self.samples_per_read))
@@ -139,6 +141,7 @@ class ArduinoDAQ(_BaseDAQ):
             self.board.sp.open()
 
         self._flag = True
+
         self._thread = Thread(target=self._run, daemon=True)
         self._thread.start()
 
@@ -168,9 +171,31 @@ class ArduinoDAQ(_BaseDAQ):
                     pass
                 raise
 
+    def _resetboard(self):
+        """
+        Reset properties on the board.
+
+        Improper shutdown / startup creates instability.
+        """
+        try:
+            for pin in self.pins_:
+                self.board.analog[pin].disable_reporting()       
+        except (SerialException):
+            pass
+        except Exception as e:
+            raise
+        # Callback and sampling off
+        self.board.analog[0].unregiser_callback()
+        self.board.samplingOff()
+        # Flush remaining data
+        while self.board.bytes_available():
+            self.board.iterate()
+
     def stop(self):
-        self._flag = False
+        self._resetboard()
         self.board.exit()
+
+        self._flag = False
 
     def read(self):
         """
